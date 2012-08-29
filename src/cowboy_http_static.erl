@@ -227,17 +227,29 @@ rest_init(Req, Opts) ->
 		{_, Filepath2} -> {filepath_path(Filepath2), Req};
 		false -> cowboy_http_req:path_info(Req)
 	end,
-	State = case check_path(Filepath) of
+	{Req2, State} = case check_path(Filepath) of
 		error ->
-			#state{filepath=error, fileinfo=error, mimetypes=undefined,
-				etag_fun=ETagFunction};
+			{Req1, #state{
+			   filepath=error,
+			   fileinfo=error,
+			   mimetypes=undefined,
+			   etag_fun=ETagFunction
+			  }};
 		ok ->
 			Filepath1 = join_paths(Directory1, Filepath),
 			Fileinfo = file:read_file_info(Filepath1),
-			#state{filepath=Filepath1, fileinfo=Fileinfo, mimetypes=Mimetypes1,
-				etag_fun=ETagFunction}
+			State1 = #state{
+			  filepath=Filepath1,
+			  fileinfo=Fileinfo,
+			  mimetypes=Mimetypes1,
+			  etag_fun=ETagFunction
+			 },
+			case proplists:get_value(custom_fun, Opts) of
+			    undefined -> {Req1, State1};
+			    CustomFun -> CustomFun(Req1, State1)
+			end
 	end,
-	{ok, Req1, State}.
+	{ok, Req2, State}.
 
 
 %% @private Only allow GET and HEAD requests on files.
